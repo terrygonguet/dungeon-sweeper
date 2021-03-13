@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content="Dungeon Sweeper" />
+		<title>Dungeon Sweeper</title>
+		<script src="./app.js" type="module"></script>
+		<script type="module">
+			import { reset } from "~styles"
+
+			const style = document.createElement("style")
+			style.textContent = reset
+			document.head.appendChild(style)
+		</script>
+		<style>
+			html,
+			body {
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<ds-app></ds-app>
+	</body>
+</html>

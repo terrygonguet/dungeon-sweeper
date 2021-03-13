@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"checkJs": true,
+		"strict": true,
+		"baseUrl": "./",
+		"paths": {
+			"~styles": ["src/styles"],
+			"~comp": ["src/components"],
+			"~utils": ["src/utils"],
+			"~stores": ["src/stores"]
+		}
+	}
+}
