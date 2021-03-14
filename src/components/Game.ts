@@ -1,5 +1,5 @@
 import { html, Hybrids, store, UpdateFunctionWithMethods } from "hybrids"
-import { discoverCell, LevelModel, Level } from "~stores/Level"
+import { discoverCell, LevelModel, Level, isVisible } from "~stores/Level"
 import { reset } from "~styles"
 
 type Game = {
@@ -12,16 +12,16 @@ type Game = {
 	timerId: number
 }
 
-function click(i: number) {
+function click(x: number, y: number) {
 	return async function (host: Game & HTMLElement) {
 		let cell
 		switch (host.state) {
 			case "ready":
 				host.state = "playing"
-				cell = await discoverCell(i)
+				cell = await discoverCell(x, y)
 				break
 			case "playing":
-				cell = await discoverCell(i)
+				cell = await discoverCell(x, y)
 				break
 		}
 		if (cell == 9) host.state = "lost"
@@ -64,19 +64,20 @@ const Game: Hybrids<Game> = {
 			gridTemplateRows: `repeat(${level.height}, auto)`,
 		}
 	},
-	cells({ level }) {
-		const { width, height, mines, visibility } = level
-		return Array(width * height)
-			.fill(0)
-			.map(
-				(_, i) =>
-					html`<button
-						onclick=${click(i)}
-						class=${{ cell: true, ["cell-" + mines[i]]: visibility[i], visible: visibility[i] }}
-					>
-						${visibility[i] && cellLabel(mines[i])}
-					</button>`,
-			)
+	cells({ level: { cells } }) {
+		return cells.map((cell, i) => {
+			const visible = isVisible(cell.visibility)
+			return html`<button
+				onclick=${click(cell.x, cell.y)}
+				class=${{
+					cell: true,
+					["cell-" + cell.mine]: visible,
+					visible: visible,
+				}}
+			>
+				${visible && cellLabel(cell.mine)}
+			</button>`
+		})
 	},
 	timer({ duration }) {
 		if (duration) {
