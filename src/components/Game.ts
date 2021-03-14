@@ -1,5 +1,5 @@
 import { html, Hybrids, store, UpdateFunctionWithMethods } from "hybrids"
-import { discoverCell, LevelModel, Level, isVisible } from "~stores/Level"
+import { discoverCell, LevelModel, Level, flagCell, Cell, Visibility, uncoverMines } from "~stores/Level"
 import { reset } from "~styles"
 
 type Game = {
@@ -12,31 +12,60 @@ type Game = {
 	timerId: number
 }
 
-function click(x: number, y: number) {
+function leftClick(x: number, y: number) {
 	return async function (host: Game & HTMLElement) {
-		let cell
+		let lose
 		switch (host.state) {
 			case "ready":
 				host.state = "playing"
-				cell = await discoverCell(x, y)
+				lose = await discoverCell(x, y)
 				break
 			case "playing":
-				cell = await discoverCell(x, y)
+				lose = await discoverCell(x, y)
 				break
 		}
-		if (cell == 9) host.state = "lost"
+		if (lose) {
+			host.state = "lost"
+			await uncoverMines()
+		}
+		if (host.level.isGameWon) {
+			host.state = "won"
+			await uncoverMines()
+		}
+	}
+}
+
+function rightClick(x: number, y: number) {
+	return async function (host: Game & HTMLElement, e: MouseEvent) {
+		e.preventDefault()
+		switch (host.state) {
+			case "ready":
+				host.state = "playing"
+				await flagCell(x, y)
+				break
+			case "playing":
+				await flagCell(x, y)
+				break
+		}
 		if (host.level.isGameWon) host.state = "won"
 	}
 }
 
-function cellLabel(n: number) {
-	switch (n) {
-		case 0:
+function cellLabel({ mine, visibility }: Cell) {
+	switch (visibility) {
+		case Visibility.Visible:
+			switch (mine) {
+				case 0:
+					return ""
+				case 9:
+					return "💣"
+				default:
+					return mine
+			}
+		case Visibility.Flagged:
+			return "🚩"
+		case Visibility.Hidden:
 			return ""
-		case 9:
-			return "💣"
-		default:
-			return n
 	}
 }
 
@@ -66,16 +95,18 @@ const Game: Hybrids<Game> = {
 	},
 	cells({ level: { cells } }) {
 		return cells.map((cell, i) => {
-			const visible = isVisible(cell.visibility)
+			const visible = cell.visibility == Visibility.Visible
 			return html`<button
-				onclick=${click(cell.x, cell.y)}
+				onclick=${leftClick(cell.x, cell.y)}
+				oncontextmenu=${rightClick(cell.x, cell.y)}
 				class=${{
 					cell: true,
 					["cell-" + cell.mine]: visible,
 					visible: visible,
+					flagged: cell.visibility == Visibility.Flagged,
 				}}
 			>
-				${visible && cellLabel(cell.mine)}
+				${cellLabel(cell)}
 			</button>`
 		})
 	},
@@ -130,10 +161,10 @@ const Game: Hybrids<Game> = {
 					width: 100%;
 				}
 				.lost-banner {
-					background: red;
+					background: rgba(255, 0, 0, 0.7);
 				}
 				.won-banner {
-					background: lightgreen;
+					background: rgba(14, 255, 30, 0.7);
 				}
 				.visible {
 					background: white;

@@ -18,7 +18,7 @@
 		"paths": {
 			"~styles": ["./src/styles/index.ts"],
 			"~comp/*": ["./src/components/*"],
-			"~utils": ["./src/utils/utils.ts"],
+			"~utils": ["./src/utils.ts"],
 			"~stores/*": ["./src/stores/*"]
 		},
 		// "composite": true,                           /* Enable project compilation */

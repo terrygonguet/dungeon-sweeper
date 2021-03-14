@@ -1,7 +1,7 @@
 import { Model, store } from "hybrids"
 import { randInt } from "../utils"
 
-enum Visibility {
+export enum Visibility {
 	Hidden,
 	Visible,
 	Flagged,
@@ -92,13 +92,21 @@ export function setLevelDimensions({ width = 30, height = 15, difficulty = 0.1 }
 	return store.set(LevelModel, { width, height, cells })
 }
 
+/**
+ * Returns a boolean signaling if the discovered cell is a mine or not
+ */
 export async function discoverCell(x: number, y: number) {
 	const level = store.get(LevelModel),
 		{ cells, width, height } = level,
 		get = makeGet(cells),
 		cell = get(x, y)
 
-	if (isVisible(cell?.visibility)) return cell?.mine
+	switch (cell?.visibility) {
+		case Visibility.Flagged:
+			return false
+		case Visibility.Visible:
+			return cell.mine == 9
+	}
 
 	const toCheck = new Set<string>()
 	const toUncover = new Set<string>()
@@ -111,8 +119,11 @@ export async function discoverCell(x: number, y: number) {
 
 	toCheck.forEach(pos => {
 		const [x, y] = pos.split(" ").map(n => parseInt(n))
-		toUncover.add(pos)
-		if (get(x, y)?.mine || x < 0 || y < 0 || x >= width || y >= height) return
+		const cell = get(x, y)
+
+		if (cell?.visibility != Visibility.Flagged) toUncover.add(pos)
+		if (cell?.mine || x < 0 || y < 0 || x >= width || y >= height) return
+
 		toCheck.add(id(x + 1, y + 1))
 		toCheck.add(id(x, y + 1))
 		toCheck.add(id(x - 1, y + 1))
@@ -130,5 +141,36 @@ export async function discoverCell(x: number, y: number) {
 		),
 	})
 
-	return cell?.mine
+	return cell?.mine == 9
+}
+
+export function uncoverMines() {
+	const level = store.get(LevelModel),
+		{ cells } = level
+
+	return store.set(LevelModel, {
+		...level,
+		cells: cells.map(cell => (cell.mine == 9 ? { ...cell, visibility: Visibility.Visible } : cell)),
+	})
+}
+
+export function flagCell(x: number, y: number) {
+	const level = store.get(LevelModel),
+		{ cells } = level
+
+	function next(visibility: Visibility) {
+		switch (visibility) {
+			case Visibility.Hidden:
+				return Visibility.Flagged
+			case Visibility.Flagged:
+				return Visibility.Hidden
+			case Visibility.Visible:
+				return Visibility.Visible
+		}
+	}
+
+	return store.set(LevelModel, {
+		...level,
+		cells: cells.map(cell => (cell.x == x && cell.y == y ? { ...cell, visibility: next(cell.visibility) } : cell)),
+	})
 }

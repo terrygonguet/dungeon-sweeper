@@ -6,7 +6,7 @@ import { setLevelDimensions } from "~stores/Level"
 
 const dev = import.meta.env.MODE == "development"
 
-if (dev) setLevelDimensions().then(console.log)
+if (dev) setLevelDimensions().then(level => dev && console.log(level))
 
 type App = {
 	state: "menu" | "playing" | "won" | "lost"
