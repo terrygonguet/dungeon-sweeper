@@ -1,47 +1,35 @@
-import { html, store } from "hybrids"
-import { discoverCell, Level } from "~stores"
+import { html, Hybrids, store, UpdateFunctionWithMethods } from "hybrids"
+import { discoverCell, LevelModel, Level } from "~stores/Level"
 import { reset } from "~styles"
 
-/**
- * @typedef {Object} Game
- * @property {import("src/types").LevelModel} level
- * @property {Object} gridStyle
- * @property {import("hybrids").UpdateFunctionWithMethods<Game>[]} cells
- * @property {import("hybrids").UpdateFunctionWithMethods<Game>} timer
- * @property {number} duration
- * @property {"ready" | "playing" | "won" | "lost"} state
- * @property {number} timerId
- */
-
-/**
- * @param {number} i
- */
-function click(i) {
-	return (
-		/**
-		 * @param {Game} host
-		 */
-		async function (host) {
-			let cell
-			switch (host.state) {
-				case "ready":
-					host.state = "playing"
-					cell = await discoverCell(i)
-					break
-				case "playing":
-					cell = await discoverCell(i)
-					break
-			}
-			if (cell == 9) host.state = "lost"
-			if (host.level.isGameWon) host.state = "won"
-		}
-	)
+type Game = {
+	level: Level
+	gridStyle: Object
+	cells: UpdateFunctionWithMethods<Game>[]
+	timer: UpdateFunctionWithMethods<Game>
+	duration: number
+	state: "ready" | "playing" | "won" | "lost"
+	timerId: number
 }
 
-/**
- * @param {number} n
- */
-function cellLabel(n) {
+function click(i: number) {
+	return async function (host: Game & HTMLElement) {
+		let cell
+		switch (host.state) {
+			case "ready":
+				host.state = "playing"
+				cell = await discoverCell(i)
+				break
+			case "playing":
+				cell = await discoverCell(i)
+				break
+		}
+		if (cell == 9) host.state = "lost"
+		if (host.level.isGameWon) host.state = "won"
+	}
+}
+
+function cellLabel(n: number) {
 	switch (n) {
 		case 0:
 			return ""
@@ -52,9 +40,8 @@ function cellLabel(n) {
 	}
 }
 
-/** @type {import("hybrids").Hybrids<Game>} */
-const Game = {
-	level: store(Level),
+const Game: Hybrids<Game> = {
+	level: store(LevelModel),
 	duration: 0,
 	timerId: -1,
 	state: {
@@ -80,7 +67,7 @@ const Game = {
 	cells({ level }) {
 		const { width, height, mines, visibility } = level
 		return Array(width * height)
-			.fill()
+			.fill(0)
 			.map(
 				(_, i) =>
 					html`<button
@@ -99,7 +86,7 @@ const Game = {
 			return html`<p class="timer">${min.padStart(2, "0")}:${sec.padStart(2, "0")}</p>`
 		} else return html`<p class="timer">Ready to start!</p>`
 	},
-	render: ({ level: { width, height }, gridStyle, cells, timer, state }) =>
+	render: ({ gridStyle, cells, timer, state }) =>
 		html`${timer}
 			<div id="grid" style=${gridStyle}>
 				${cells} ${state == "lost" && html`<div class="banner lost-banner">You lost...</div>`}

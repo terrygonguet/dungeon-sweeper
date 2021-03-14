@@ -1,11 +1,5 @@
-import { Model } from "hybrids"
-
-type Level = {
-	width: number
-	height: number
-	mines: number[]
-	visibility: boolean[]
-	isGameWon: boolean
+interface ImportMeta {
+	env: {
+		MODE: "development" | "production"
+	}
 }
-
-type LevelModel = Model<Level>

@@ -1,28 +1,23 @@
-import { define, html, store } from "hybrids"
+import { define, html, Hybrids, UpdateFunctionWithMethods } from "hybrids"
 import { reset } from "~styles"
 import Menu from "~comp/Menu"
 import Game from "~comp/Game"
-import { setLevelDimensions } from "~stores"
+import { setLevelDimensions } from "~stores/Level"
 
 const dev = import.meta.env.MODE == "development"
 
 if (dev) setLevelDimensions()
 
-/**
- * @typedef {Object} App
- * @property {"menu" | "playing" | "won" | "lost"} state
- * @property {import("hybrids").UpdateFunctionWithMethods<App>} curEl
- */
+type App = {
+	state: "menu" | "playing" | "won" | "lost"
+	curEl: UpdateFunctionWithMethods<App>
+}
 
-/**
- * @param {App & HTMLElement} host
- */
-function start(host) {
+function start(host: App & HTMLElement) {
 	host.state = "playing"
 }
 
-/** @type {import("hybrids").Hybrids<App>} */
-const App = {
+const App: Hybrids<App> = {
 	state: dev ? "playing" : "menu",
 	curEl({ state }) {
 		switch (state) {

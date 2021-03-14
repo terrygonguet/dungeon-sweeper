@@ -1,27 +1,21 @@
-import { html } from "hybrids"
-import { setLevelDimensions } from "~stores"
+import { html, Hybrids } from "hybrids"
+import { setLevelDimensions } from "~stores/Level"
 import { buttons, reset } from "~styles"
 
-/**
- * @typedef {Object} Menu
- * @property {number} width
- * @property {number} height
- * @property {number} difficulty
- * @property {Object} gridStyle
- */
+type Menu = {
+	width: number
+	height: number
+	difficulty: number
+	gridStyle: Object
+}
 
-/**
- * @param {Menu & HTMLElement} host
- * @param {Event} e
- */
-async function start(host, e) {
+async function start(host: Menu & HTMLElement, e: Event) {
 	e.preventDefault()
 	await setLevelDimensions(host)
 	host.dispatchEvent(new CustomEvent("start"))
 }
 
-/** @type {import("hybrids").Hybrids<Menu>} */
-const Menu = {
+const Menu: Hybrids<Menu> = {
 	width: 30,
 	height: 15,
 	difficulty: 0.1,
@@ -64,7 +58,7 @@ const Menu = {
 			</form>
 			<div id="grid" style="${gridStyle}">
 				${Array(width * height)
-					.fill()
+					.fill(0)
 					.map(() => html`<div class="cell"></div>`)}
 			</div>
 			<style>
