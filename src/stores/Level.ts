@@ -97,19 +97,25 @@ export function setLevelDimensions({ width = 30, height = 15, difficulty = 0.1 }
  */
 export async function discoverCell(x: number, y: number) {
 	const level = store.get(LevelModel),
-		{ cells, width, height } = level,
-		get = makeGet(cells),
+		get = makeGet(level.cells),
 		cell = get(x, y)
 
 	switch (cell?.visibility) {
-		case Visibility.Flagged:
-			return false
 		case Visibility.Visible:
-			return cell.mine == 9
+			return uncoverNext(x, y, level)
+		case Visibility.Hidden:
+			return uncoverFrom(x, y, level)
+		default:
+			return false
 	}
+}
 
-	const toCheck = new Set<string>()
-	const toUncover = new Set<string>()
+async function uncoverFrom(x: number, y: number, level: Level) {
+	const { cells, width, height } = level,
+		get = makeGet(cells),
+		cell = get(x, y),
+		toCheck = new Set<string>(),
+		toUncover = new Set<string>()
 
 	function id(x: number, y: number) {
 		return x + " " + y
@@ -142,6 +148,32 @@ export async function discoverCell(x: number, y: number) {
 	})
 
 	return cell?.mine == 9
+}
+
+async function uncoverNext(x: number, y: number, level: Level) {
+	const { cells } = level,
+		get = makeGet(cells),
+		cell = get(x, y),
+		neighbours = [
+			get(x + 1, y + 1),
+			get(x, y + 1),
+			get(x - 1, y + 1),
+			get(x + 1, y - 1),
+			get(x, y - 1),
+			get(x - 1, y - 1),
+			get(x + 1, y),
+			get(x - 1, y),
+		].filter(Boolean) as Cell[],
+		nbFlagged = neighbours.reduce((acc, cur) => acc + (cur?.visibility == Visibility.Flagged ? 1 : 0), 0)
+
+	if (nbFlagged != cell?.mine) return cell?.mine == 9
+
+	const promises = neighbours
+			.filter(cell => cell.visibility != Visibility.Flagged)
+			.map(({ x, y }) => uncoverFrom(x, y, level)),
+		results = await Promise.all(promises)
+
+	return results.some(Boolean)
 }
 
 export function uncoverMines() {

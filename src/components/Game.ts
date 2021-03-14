@@ -1,16 +1,9 @@
 import { html, Hybrids, store, UpdateFunctionWithMethods } from "hybrids"
-import { discoverCell, LevelModel, Level, flagCell, Cell, Visibility, uncoverMines } from "~stores/Level"
+import { discoverCell, LevelModel, Level, flagCell, Visibility, uncoverMines } from "~stores/Level"
 import { reset } from "~styles"
-
-type Game = {
-	level: Level
-	gridStyle: Object
-	cells: UpdateFunctionWithMethods<Game>[]
-	timer: UpdateFunctionWithMethods<Game>
-	duration: number
-	state: "ready" | "playing" | "won" | "lost"
-	timerId: number
-}
+import Banner from "~comp/Banner"
+import Timer from "~comp/Timer"
+import GridCell from "~comp/GridCell"
 
 function leftClick(x: number, y: number) {
 	return async function (host: Game & HTMLElement) {
@@ -51,22 +44,13 @@ function rightClick(x: number, y: number) {
 	}
 }
 
-function cellLabel({ mine, visibility }: Cell) {
-	switch (visibility) {
-		case Visibility.Visible:
-			switch (mine) {
-				case 0:
-					return ""
-				case 9:
-					return "💣"
-				default:
-					return mine
-			}
-		case Visibility.Flagged:
-			return "🚩"
-		case Visibility.Hidden:
-			return ""
-	}
+type Game = {
+	level: Level
+	cells: UpdateFunctionWithMethods<Game>[]
+	duration: number
+	state: "ready" | "playing" | "won" | "lost"
+	timerId: number
+	banner: UpdateFunctionWithMethods<Game>
 }
 
 const Game: Hybrids<Game> = {
@@ -87,41 +71,29 @@ const Game: Hybrids<Game> = {
 			host.state = "ready"
 		},
 	},
-	gridStyle({ level }) {
-		return {
-			gridTemplateColumns: `repeat(${level.width}, auto)`,
-			gridTemplateRows: `repeat(${level.height}, auto)`,
-		}
-	},
-	cells({ level: { cells } }) {
+	cells({ level: { cells }, state }) {
 		return cells.map(cell => {
 			const visible = cell.visibility == Visibility.Visible
-			return html`<button
+			return html`<ds-cell
 				onclick=${leftClick(cell.x, cell.y)}
 				oncontextmenu=${rightClick(cell.x, cell.y)}
-				class=${{
-					cell: true,
-					["cell-" + cell.mine]: visible,
-					visible: visible,
-				}}
-			>
-				${cellLabel(cell)}
-			</button>`
+				cell=${cell}
+				won=${state == "won"}
+				lost=${state == "lost"}
+			></ds-cell>`
 		})
 	},
-	timer({ duration }) {
-		if (duration) {
-			const s = Math.round(duration / 1000),
-				min = Math.floor(s / 60) + "",
-				sec = (s % 60) + ""
-			return html`<p class="timer">${min.padStart(2, "0")}:${sec.padStart(2, "0")}</p>`
-		} else return html`<p class="timer">Ready to start!</p>`
-	},
-	render: ({ gridStyle, cells, timer, state }) =>
-		html`${timer}
-			<div id="grid" style=${gridStyle}>
-				${cells} ${state == "lost" && html`<div class="banner lost-banner">You lost...</div>`}
-				${state == "won" && html`<div class="banner won-banner">You won!</div>`}
+	banner: ({ state }) => (["won", "lost"].includes(state) ? html`<ds-banner state=${state}></ds-banner>` : html``),
+	render: ({ level, cells, duration, banner }) =>
+		html`<ds-timer duration=${duration}></ds-timer>
+			<div
+				id="grid"
+				style=${{
+					gridTemplateColumns: `repeat(${level.width}, auto)`,
+					gridTemplateRows: `repeat(${level.height}, auto)`,
+				}}
+			>
+				${cells} ${banner}
 			</div>
 			<style>
 				:host {
@@ -130,72 +102,11 @@ const Game: Hybrids<Game> = {
 				#grid {
 					display: grid;
 					border: 1px solid #999;
-					border-collapse: collapse;
 					position: relative;
 				}
-				.cell {
-					border: 1px solid #999;
-					height: 1.7rem;
-					width: 1.7rem;
-					background: #ccc;
-					transition: background-color 100ms ease-out;
-				}
-				.cell:hover {
-					background: #eee;
-				}
-				.timer {
-					font-size: 1.5rem;
-					text-align: center;
-					margin-bottom: 0.5rem;
-					font-family: monospace;
-				}
-				.banner {
-					font-size: 2.5rem;
-					font-weight: bold;
-					text-align: center;
-					padding: 1rem;
-					position: absolute;
-					top: 50%;
-					transform: translateY(-50%);
-					width: 100%;
-				}
-				.lost-banner {
-					background: rgba(255, 0, 0, 0.7);
-				}
-				.won-banner {
-					background: rgba(14, 255, 30, 0.7);
-				}
-				.visible {
-					background: white;
-				}
-				.cell-1 {
-					color: #0eff1e;
-				}
-				.cell-2 {
-					color: #12d2ff;
-				}
-				.cell-3 {
-					color: #1489ff;
-				}
-				.cell-4 {
-					color: #1641ff;
-				}
-				.cell-5 {
-					color: #3618ff;
-				}
-				.cell-6 {
-					color: #7f1bff;
-				}
-				.cell-7 {
-					color: #c71dff;
-				}
-				.cell-8 {
-					color: #ff1ff1;
-				}
-				.cell-9 {
-					background: red;
-				}
-			</style>`.style(reset),
+			</style>`
+			.style(reset)
+			.define({ dsTimer: Timer, dsBanner: Banner, dsCell: GridCell }),
 }
 
 export default Game
