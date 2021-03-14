@@ -40,11 +40,11 @@ export const LevelModel: Model<Level> = {
 	},
 }
 
-export function isFlaggedOrHidden(visibility?: Visibility) {
+function isFlaggedOrHidden(visibility?: Visibility) {
 	return visibility == Visibility.Hidden || visibility == Visibility.Flagged
 }
 
-export function isVisible(visibility?: Visibility) {
+function isVisible(visibility?: Visibility) {
 	return visibility == Visibility.Visible
 }
 

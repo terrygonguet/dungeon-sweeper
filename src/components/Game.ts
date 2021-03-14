@@ -94,7 +94,7 @@ const Game: Hybrids<Game> = {
 		}
 	},
 	cells({ level: { cells } }) {
-		return cells.map((cell, i) => {
+		return cells.map(cell => {
 			const visible = cell.visibility == Visibility.Visible
 			return html`<button
 				onclick=${leftClick(cell.x, cell.y)}
@@ -103,7 +103,6 @@ const Game: Hybrids<Game> = {
 					cell: true,
 					["cell-" + cell.mine]: visible,
 					visible: visible,
-					flagged: cell.visibility == Visibility.Flagged,
 				}}
 			>
 				${cellLabel(cell)}
