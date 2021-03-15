@@ -41,18 +41,17 @@ const Menu: Hybrids<Menu> = {
 				<input
 					id="txb-height"
 					type="range"
-					min="5"
-					max="25"
+					min="10"
+					max="30"
 					defaultValue=${height}
 					onchange=${html.set("height")}
 					oninput=${html.set("height")}
 				/>
 				<label for="ddl-difficulty">Difficulty</label>
 				<select id="txb-difficulty" value=${difficulty} onchange=${html.set("difficulty")}>
-					<option value="0.05">Easy</option>
-					<option value="0.1">Medium</option>
-					<option value="0.2">Hard</option>
-					<option value="0.3">Tedious</option>
+					<option value="0.1">Easy</option>
+					<option value="0.2">Medium</option>
+					<option value="0.3">Hard</option>
 				</select>
 				<button class="btn">Start!</button>
 			</form>

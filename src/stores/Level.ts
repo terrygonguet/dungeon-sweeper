@@ -48,16 +48,31 @@ function isVisible(visibility?: Visibility) {
 	return visibility == Visibility.Visible
 }
 
-function makeGet(cells: Cell[]) {
+function makeGet(cells: Cell[], width: number) {
 	return function get(x: number, y: number) {
-		return cells.find(cell => cell.x == x && cell.y == y)
+		return cells[x + y * width]
 	}
 }
 
-export function setLevelDimensions({ width = 30, height = 15, difficulty = 0.1 } = {}) {
+function setCellsTo(
+	level: Level,
+	predicate: (cell: Cell) => boolean,
+	visibility: Visibility | ((cell: Cell) => Visibility) = Visibility.Visible,
+) {
+	const mapFn =
+		typeof visibility == "function"
+			? (cell: Cell) => (predicate(cell) ? { ...cell, visibility: visibility(cell) } : cell)
+			: (cell: Cell) => (predicate(cell) ? { ...cell, visibility } : cell)
+	return store.set(LevelModel, {
+		...level,
+		cells: level.cells.map(mapFn),
+	})
+}
+
+export function setLevelDimensions({ width = 50, height = 30, difficulty = 0.1 } = {}) {
 	let nbMines = Math.floor(width * height * difficulty)
 	const cells: Cell[] = [],
-		get = makeGet(cells)
+		get = (x: number, y: number) => cells.find(c => c.x == x && c.y == y)
 
 	function isMine(x: number, y: number) {
 		return get(x, y)?.mine == 9 ? 1 : 0
@@ -97,7 +112,7 @@ export function setLevelDimensions({ width = 30, height = 15, difficulty = 0.1 }
  */
 export async function discoverCell(x: number, y: number) {
 	const level = store.get(LevelModel),
-		get = makeGet(level.cells),
+		get = makeGet(level.cells, level.width),
 		cell = get(x, y)
 
 	switch (cell?.visibility) {
@@ -112,47 +127,55 @@ export async function discoverCell(x: number, y: number) {
 
 async function uncoverFrom(x: number, y: number, level: Level) {
 	const { cells, width, height } = level,
-		get = makeGet(cells),
+		get = makeGet(cells, width),
 		cell = get(x, y),
 		toCheck = new Set<string>(),
-		toUncover = new Set<string>()
+		checked = new Set<string>()
 
 	function id(x: number, y: number) {
 		return x + " " + y
 	}
 
+	async function step() {
+		const nextCells = [...level.cells]
+		let hasUncovered = false
+
+		for (const pos of Array.from(toCheck)) {
+			const [x, y] = pos.split(" ").map(n => parseInt(n))
+			if (x < 0 || y < 0 || x >= width || y >= height) continue
+
+			const cell = get(x, y)
+			if (cell?.visibility == Visibility.Hidden) {
+				hasUncovered = true
+				nextCells[x + y * width] = { ...cell, visibility: Visibility.Visible }
+			}
+			if (cell?.mine) continue
+
+			toCheck.add(id(x + 1, y + 1))
+			toCheck.add(id(x, y + 1))
+			toCheck.add(id(x - 1, y + 1))
+			toCheck.add(id(x + 1, y - 1))
+			toCheck.add(id(x, y - 1))
+			toCheck.add(id(x - 1, y - 1))
+			toCheck.add(id(x + 1, y))
+			toCheck.add(id(x - 1, y))
+		}
+
+		if (hasUncovered) {
+			await store.set(LevelModel, { ...level, cells: nextCells })
+			setTimeout(step, 50)
+		}
+	}
+
 	toCheck.add(id(x, y))
-
-	toCheck.forEach(pos => {
-		const [x, y] = pos.split(" ").map(n => parseInt(n))
-		const cell = get(x, y)
-
-		if (cell?.visibility != Visibility.Flagged) toUncover.add(pos)
-		if (cell?.mine || x < 0 || y < 0 || x >= width || y >= height) return
-
-		toCheck.add(id(x + 1, y + 1))
-		toCheck.add(id(x, y + 1))
-		toCheck.add(id(x - 1, y + 1))
-		toCheck.add(id(x + 1, y - 1))
-		toCheck.add(id(x, y - 1))
-		toCheck.add(id(x - 1, y - 1))
-		toCheck.add(id(x + 1, y))
-		toCheck.add(id(x - 1, y))
-	})
-
-	await store.set(LevelModel, {
-		...level,
-		cells: cells.map(cell =>
-			toUncover.has(id(cell.x, cell.y)) ? { ...cell, visibility: Visibility.Visible } : cell,
-		),
-	})
+	step()
 
 	return cell?.mine == 9
 }
 
 async function uncoverNext(x: number, y: number, level: Level) {
-	const { cells } = level,
-		get = makeGet(cells),
+	const { cells, width } = level,
+		get = makeGet(cells, width),
 		cell = get(x, y),
 		neighbours = [
 			get(x + 1, y + 1),
@@ -177,18 +200,13 @@ async function uncoverNext(x: number, y: number, level: Level) {
 }
 
 export function uncoverMines() {
-	const level = store.get(LevelModel),
-		{ cells } = level
+	const level = store.get(LevelModel)
 
-	return store.set(LevelModel, {
-		...level,
-		cells: cells.map(cell => (cell.mine == 9 ? { ...cell, visibility: Visibility.Visible } : cell)),
-	})
+	return setCellsTo(level, cell => cell.mine == 9)
 }
 
 export function flagCell(x: number, y: number) {
-	const level = store.get(LevelModel),
-		{ cells } = level
+	const level = store.get(LevelModel)
 
 	function next(visibility: Visibility) {
 		switch (visibility) {
@@ -201,8 +219,9 @@ export function flagCell(x: number, y: number) {
 		}
 	}
 
-	return store.set(LevelModel, {
-		...level,
-		cells: cells.map(cell => (cell.x == x && cell.y == y ? { ...cell, visibility: next(cell.visibility) } : cell)),
-	})
+	return setCellsTo(
+		level,
+		cell => cell.x == x && cell.y == y,
+		cell => next(cell.visibility),
+	)
 }
