@@ -1,7 +1,7 @@
 import { define, html, Hybrids, UpdateFunctionWithMethods } from "hybrids"
 import { reset } from "~styles"
 import Menu from "~comp/Menu"
-import Game from "~comp/Game"
+import Game from "~comp/GameCanvas"
 import { setLevelDimensions } from "~stores/Level"
 
 const dev = import.meta.env.MODE == "development"

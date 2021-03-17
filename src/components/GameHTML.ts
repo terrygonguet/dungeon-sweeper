@@ -6,7 +6,7 @@ import Timer from "~comp/Timer"
 import GridCell from "~comp/GridCell"
 
 function leftClick(x: number, y: number) {
-	return async function (host: Game & HTMLElement) {
+	return async function (host: GameHTML & HTMLElement) {
 		let lose
 		switch (host.state) {
 			case "ready":
@@ -29,7 +29,7 @@ function leftClick(x: number, y: number) {
 }
 
 function rightClick(x: number, y: number) {
-	return async function (host: Game & HTMLElement, e: MouseEvent) {
+	return async function (host: GameHTML & HTMLElement, e: MouseEvent) {
 		e.preventDefault()
 		switch (host.state) {
 			case "ready":
@@ -44,16 +44,16 @@ function rightClick(x: number, y: number) {
 	}
 }
 
-type Game = {
+type GameHTML = {
 	level: Level
-	cells: UpdateFunctionWithMethods<Game>[]
+	cells: UpdateFunctionWithMethods<GameHTML>[]
 	duration: number
 	state: "ready" | "playing" | "won" | "lost"
 	timerId: number
-	banner: UpdateFunctionWithMethods<Game>
+	banner: UpdateFunctionWithMethods<GameHTML>
 }
 
-const Game: Hybrids<Game> = {
+const GameHTML: Hybrids<GameHTML> = {
 	level: store(LevelModel),
 	duration: 0,
 	timerId: -1,
@@ -109,4 +109,4 @@ const Game: Hybrids<Game> = {
 			.define({ dsTimer: Timer, dsBanner: Banner, dsCell: GridCell }),
 }
 
-export default Game
+export default GameHTML
