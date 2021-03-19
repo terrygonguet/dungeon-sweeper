@@ -19,7 +19,8 @@
 			"~styles": ["./src/styles/index.ts"],
 			"~comp/*": ["./src/components/*"],
 			"~utils": ["./src/utils.ts"],
-			"~stores/*": ["./src/stores/*"]
+			"~stores/*": ["./src/stores/*"],
+			"~logic/*": ["./src/logic/*"]
 		},
 		// "composite": true,                           /* Enable project compilation */
 		// "tsBuildInfoFile": "./",                     /* Specify file to store incremental compilation information */

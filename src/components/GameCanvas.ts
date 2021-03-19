@@ -1,6 +1,9 @@
 import { html, Hybrids } from "hybrids"
-import { buttons, reset as resetCSS } from "~styles"
-import { querySelectorProp, randInt } from "~utils"
+import { reset as resetCSS } from "~styles"
+import { querySelectorProp } from "~utils"
+import { discoverCell, flagCell, get, Grid, isGameWon, makeGrid, uncoverAllMines, Visibility } from "~logic/Minesweeper"
+import Banner from "~comp/Banner"
+import Timer from "~comp/Timer"
 
 function drawGrid({ width, height, cellSize, ctx }: GameCanvas) {
 	ctx.save()
@@ -18,39 +21,53 @@ function drawGrid({ width, height, cellSize, ctx }: GameCanvas) {
 	ctx.restore()
 }
 
-function drawCells({ width, height, cellSize, ctx, grid }: GameCanvas) {
-	ctx.save()
-	ctx.textAlign = "center"
-	ctx.textBaseline = "middle"
-	ctx.font = `${Math.floor(0.6 * cellSize)}px sans-serif`
-	for (let x = 0; x < width; x++) {
-		for (let y = 0; y < height; y++) {
-			const cell = get(grid, x, y)
-			switch (cell?.[VIS]) {
-				case Visibility.Flagged:
-				case Visibility.Hidden:
-					ctx.fillStyle = "#ccc"
-					ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
-					break
-				case Visibility.Visible:
-					switch (cell?.[MINE]) {
-						case 0: // nothing
-							break
-						case 9:
-							ctx.fillStyle = "red"
+function drawCells({ width, height, cellSize, ctx, grid, state }: GameCanvas) {
+	switch (state) {
+		case "initial":
+			ctx.save()
+			ctx.fillStyle = "#ccc"
+			ctx.fillRect(0, 0, width * cellSize, height * cellSize)
+			ctx.restore()
+			break
+		default:
+			ctx.save()
+			ctx.textAlign = "center"
+			ctx.textBaseline = "middle"
+			ctx.font = `${Math.floor(0.6 * cellSize)}px sans-serif`
+			for (let x = 0; x < width; x++) {
+				for (let y = 0; y < height; y++) {
+					const cell = get(grid, x, y)
+					switch (cell?.visibility) {
+						case Visibility.Flagged:
+							ctx.fillStyle = "#ccc"
 							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
-							ctx.fillText("💣", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
+							ctx.fillText("🚩", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
 							break
-						default:
-							ctx.fillStyle = colors[cell?.[MINE] ?? 9]
-							ctx.fillText(cell?.[MINE] + "", (x + 0.5) * cellSize, (y + 0.5) * cellSize)
+						case Visibility.Hidden:
+							ctx.fillStyle = "#ccc"
+							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+							break
+						case Visibility.Visible:
+							switch (cell?.mine) {
+								case 0: // nothing
+									break
+								case 9:
+									ctx.fillStyle = state == "won" ? "lightgreen" : "red"
+									ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+									ctx.fillText("💣", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
+									break
+								default:
+									ctx.fillStyle = colors[cell?.mine ?? 9]
+									ctx.fillText(cell?.mine + "", (x + 0.5) * cellSize, (y + 0.5) * cellSize)
+									break
+							}
 							break
 					}
-					break
+				}
 			}
-		}
+			ctx.restore()
+			break
 	}
-	ctx.restore()
 }
 
 function render(host: GameCanvas) {
@@ -61,212 +78,114 @@ function render(host: GameCanvas) {
 
 const colors = ["white", "#0eff1e", "#12d2ff", "#1489ff", "#1641ff", "#3618ff", "#7f1bff", "#c71dff", "#ff1ff1", "red"]
 
-function setCell(grid: Grid, x: number, y: number, cell: Cell) {
-	if (!grid[x]) grid[x] = []
-	grid[x][y] = cell
-	return grid
-}
-
-function setCellVisibility(grid: Grid, x: number, y: number, visibility: Visibility) {
-	const cell = get(grid, x, y)
-	cell && (cell[VIS] = visibility)
-}
-
-function get(grid: Grid, x: number, y: number): Cell | undefined {
-	return grid[x]?.[y]
-}
-
-function makeGrid({ width = 30, height = 20, difficulty = 0.1 } = {}) {
-	const grid: Grid = []
-	let nbMines = Math.ceil(width * height * difficulty)
-
-	do {
-		const x = randInt(0, width),
-			y = randInt(0, height)
-		if (get(grid, x, y)) continue
-		setCell(grid, x, y, [x, y, Visibility.Hidden, 9])
-		nbMines--
-	} while (nbMines > 0)
-
-	for (let x = 0; x < width; x++) {
-		if (!grid[x]) grid[x] = []
-		for (let y = 0; y < height; y++) {
-			if (grid[x][y]) continue
-			const mine =
-				(get(grid, x + 1, y + 1)?.[MINE] == 9 ? 1 : 0) +
-				(get(grid, x + 1, y)?.[MINE] == 9 ? 1 : 0) +
-				(get(grid, x + 1, y - 1)?.[MINE] == 9 ? 1 : 0) +
-				(get(grid, x - 1, y + 1)?.[MINE] == 9 ? 1 : 0) +
-				(get(grid, x - 1, y)?.[MINE] == 9 ? 1 : 0) +
-				(get(grid, x - 1, y - 1)?.[MINE] == 9 ? 1 : 0) +
-				(get(grid, x, y + 1)?.[MINE] == 9 ? 1 : 0) +
-				(get(grid, x, y - 1)?.[MINE] == 9 ? 1 : 0)
-			grid[x][y] = [x, y, Visibility.Hidden, mine]
-		}
-	}
-
-	return grid
-}
-
-function discoverCell(host: GameCanvas, x: number, y: number) {
-	const { grid } = host,
-		cell = get(grid, x, y)
-
-	switch (cell?.[VIS]) {
-		case Visibility.Visible:
-		// return uncoverNext(x, y, level)
-		case Visibility.Hidden:
-			return uncoverFrom(host, x, y)
-		default:
-			return false
-	}
-}
-
-function uncoverFrom({ grid, width, height }: GameCanvas, x: number, y: number) {
-	const cell = get(grid, x, y)
-
-	if (cell?.[MINE]) setCellVisibility(grid, x, y, Visibility.Visible)
-	else {
-		const toCheck = new Set<string>(),
-			toUncover = new Set<string>()
-
-		function id(x: number, y: number) {
-			return x + " " + y
-		}
-
-		toCheck.add(id(x, y))
-
-		toCheck.forEach(pos => {
-			const [x, y] = pos.split(" ").map(n => parseInt(n)),
-				cell = get(grid, x, y)
-
-			if (cell?.[VIS] == Visibility.Hidden) toUncover.add(pos)
-			if (cell?.[MINE] || x < 0 || y < 0 || x >= width || y >= height) return
-
-			toCheck.add(id(x + 1, y + 1))
-			toCheck.add(id(x, y + 1))
-			toCheck.add(id(x - 1, y + 1))
-			toCheck.add(id(x + 1, y - 1))
-			toCheck.add(id(x, y - 1))
-			toCheck.add(id(x - 1, y - 1))
-			toCheck.add(id(x + 1, y))
-			toCheck.add(id(x - 1, y))
-		})
-
-		toUncover.forEach(pos => {
-			const [x, y] = pos.split(" ").map(n => parseInt(n))
-			setCellVisibility(grid, x, y, Visibility.Visible)
-		})
-	}
-}
-
-function reset(host: GameCanvas) {
-	host.grid = makeGrid(host)
-	render(host)
-}
-
-function handleClick(host: GameCanvas, e: MouseEvent) {
+function handleLeftClick(host: GameCanvas, e: MouseEvent) {
 	const { offsetX, offsetY } = e,
-		{ cellSize } = host,
+		{ cellSize, state } = host,
 		x = Math.floor(offsetX / cellSize),
 		y = Math.floor(offsetY / cellSize)
-	discoverCell(host, x, y)
+
+	switch (state) {
+		case "initial":
+			host.grid = makeGrid(host, x, y)
+			if (discoverCell(host, x, y, () => render(host))) host.state = "lost"
+			else host.state = "playing"
+			break
+		case "playing":
+			if (discoverCell(host, x, y, () => render(host))) host.state = "lost"
+			if (isGameWon(host.grid)) host.state = "won"
+			break
+	}
+
+	if (host.state == "won" || host.state == "lost") {
+		uncoverAllMines(host.grid)
+	}
+
 	render(host)
 }
 
-enum Visibility {
-	Hidden,
-	Visible,
-	Flagged,
-}
+function handleRightClick(host: GameCanvas, e: MouseEvent) {
+	e.preventDefault()
 
-const X = 0,
-	Y = 1,
-	VIS = 2,
-	MINE = 3
-type Cell = [number, number, Visibility, number]
+	const { offsetX, offsetY } = e,
+		{ cellSize, state } = host,
+		x = Math.floor(offsetX / cellSize),
+		y = Math.floor(offsetY / cellSize)
 
-type Grid = {
-	[x: number]: {
-		[y: number]: Cell
+	switch (state) {
+		case "initial":
+			host.state = "playing"
+			host.grid = makeGrid(host, x, y)
+		case "playing":
+			flagCell(host.grid, x, y)
+			break
 	}
+
+	render(host)
 }
 
 type GameCanvas = {
 	width: number
 	height: number
 	cellSize: number
+	difficulty: number
 	canvas: HTMLCanvasElement
 	ctx: CanvasRenderingContext2D
 	grid: Grid
+	state: "initial" | "playing" | "won" | "lost"
+	timeoutId: number
+	duration: number
 }
 
 const GameCanvas: Hybrids<GameCanvas> = {
 	width: 30,
 	height: 20,
 	cellSize: 30,
+	difficulty: 0.1,
 	canvas: querySelectorProp("canvas"),
 	ctx: {
 		get: ({ canvas }) => canvas.getContext("2d") as CanvasRenderingContext2D,
-		connect: render,
+		connect: host => void setTimeout(render.bind(undefined, host), 15),
 	},
-	grid: makeGrid(),
-	render: ({ width, height, cellSize }) =>
-		html`<canvas width=${width * cellSize} height=${height * cellSize} onclick=${handleClick}></canvas>
-			<div id="controls">
-				<label for="rng-width">Width - ${cellSize}</label>
-				<input
-					id="rng-width"
-					type="range"
-					min="10"
-					max="50"
-					defaultValue=${width}
-					oninput=${html.set("width")}
-				/>
-				<label for="rng-height">Height - ${height}</label>
-				<input
-					id="rng-height"
-					type="range"
-					min="10"
-					max="50"
-					defaultValue=${height}
-					oninput=${html.set("height")}
-				/>
-				<label for="rng-cellsize">Cell Size - ${cellSize}px</label>
-				<input
-					id="rng-cellsize"
-					type="range"
-					min="1"
-					max="50"
-					defaultValue=${cellSize}
-					oninput=${html.set("cellSize")}
-				/>
-				<button type="button" onclick=${reset} class="btn">Reset</button>
-			</div>
+	grid: null,
+	state: {
+		observe(host, value, oldValue) {
+			if (value == "playing" && oldValue == "initial") {
+				let before = Date.now()
+				host.timeoutId = setInterval(() => {
+					host.duration += Date.now() - before
+					before = Date.now()
+				}, 1000)
+				host.duration = 1
+			} else if (oldValue == "playing") {
+				clearInterval(host.timeoutId)
+			}
+		},
+		connect(host) {
+			host.state = "initial"
+		},
+	},
+	timeoutId: -1,
+	duration: 0,
+	render: ({ width, height, cellSize, duration, state }) =>
+		html`<ds-timer duration=${duration}></ds-timer>
+			<canvas
+				width=${width * cellSize}
+				height=${height * cellSize}
+				onclick=${handleLeftClick}
+				oncontextmenu=${handleRightClick}
+			></canvas>
+			${["won", "lost"].includes(state) && html`<ds-banner state=${state}></ds-banner>`}
 			<style>
 				:host {
 					margin: auto;
+					position: relative;
 				}
 				canvas {
 					border: 1px solid black;
 				}
-				#controls {
-					position: absolute;
-					top: 0;
-					left: 0;
-					background: #333;
-					color: white;
-					display: flex;
-					flex-direction: column;
-					gap: 1rem;
-					padding: 1rem;
-				}
-				button {
-					align-self: center;
-				}
 			</style>`
 			.style(resetCSS)
-			.style(buttons),
+			.define({ dsTimer: Timer, dsBanner: Banner }),
 }
 
 export default GameCanvas

@@ -9,10 +9,20 @@ type Menu = {
 	gridStyle: Object
 }
 
+export type StartEvent = CustomEvent<{ width: number; height: number; difficulty: number }>
+
 async function start(host: Menu & HTMLElement, e: Event) {
 	e.preventDefault()
 	await setLevelDimensions(host)
-	host.dispatchEvent(new CustomEvent("start"))
+	host.dispatchEvent(
+		new CustomEvent("start", {
+			detail: {
+				width: host.width,
+				height: host.height,
+				difficulty: host.difficulty,
+			},
+		}),
+	)
 }
 
 const Menu: Hybrids<Menu> = {

@@ -11,6 +11,7 @@ module.exports = {
 		"~styles": "./src/styles",
 		"~comp": "./src/components",
 		"~stores": "./src/stores",
+		"~logic": "./src/logic",
 		"~utils": "./src/utils.js",
 	},
 	plugins: ["@snowpack/plugin-postcss"],
