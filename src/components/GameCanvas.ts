@@ -1,6 +1,6 @@
-import { html, Hybrids } from "hybrids"
+import { html, Hybrids, property } from "hybrids"
 import { reset as resetCSS } from "~styles"
-import { querySelectorProp } from "~utils"
+import { clamp, querySelectorProp } from "~utils"
 import { discoverCell, flagCell, get, Grid, isGameWon, makeGrid, uncoverAllMines, Visibility } from "~logic/Minesweeper"
 import Banner from "~comp/Banner"
 import Timer from "~comp/Timer"
@@ -123,6 +123,12 @@ function handleRightClick(host: GameCanvas, e: MouseEvent) {
 	render(host)
 }
 
+function handleWheel(host: GameCanvas, e: WheelEvent) {
+	e.preventDefault()
+	host.cellSize = clamp(host.cellSize - Math.sign(e.deltaY) * 2, 7, 50)
+	render(host)
+}
+
 type GameCanvas = {
 	width: number
 	height: number
@@ -139,7 +145,11 @@ type GameCanvas = {
 const GameCanvas: Hybrids<GameCanvas> = {
 	width: 30,
 	height: 20,
-	cellSize: 30,
+	cellSize: property(30, host => {
+		const cb = handleWheel.bind(undefined, host)
+		window.addEventListener("wheel", cb, { passive: false })
+		return () => window.removeEventListener("wheel", cb)
+	}),
 	difficulty: 0.1,
 	canvas: querySelectorProp("canvas"),
 	ctx: {
