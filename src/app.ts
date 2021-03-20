@@ -14,8 +14,12 @@ function start(host: App & HTMLElement, e: StartEvent) {
 	host.colors = e.detail.colors
 }
 
+function goBack(host: App) {
+	host.state = "menu"
+}
+
 type App = {
-	state: "menu" | "playing" | "won" | "lost"
+	state: "menu" | "playing"
 	curEl: UpdateFunctionWithMethods<App>
 	width: number
 	height: number
@@ -39,6 +43,7 @@ const App: Hybrids<App> = {
 					height=${height}
 					difficulty=${difficulty}
 					colors=${colors}
+					onback=${goBack}
 				></ds-game>`.define({
 					dsGame: Game,
 				})

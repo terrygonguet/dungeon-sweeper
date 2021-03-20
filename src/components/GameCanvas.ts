@@ -1,5 +1,5 @@
 import { html, Hybrids, property } from "hybrids"
-import { reset as resetCSS } from "~styles"
+import { buttons, reset as resetCSS } from "~styles"
 import { clamp, preventDefault, querySelectorProp, noopTag as css } from "~utils"
 import {
 	Cell,
@@ -267,6 +267,17 @@ function handleTouchEnd(host: GameCanvas, e: TouchEvent) {
 	render(host)
 }
 
+function goBack(host: GameCanvas & HTMLElement) {
+	host.dispatchEvent(new CustomEvent("back"))
+}
+
+function reset(host: GameCanvas) {
+	host.grid = null as any
+	host.state = "initial"
+	host.duration = 0
+	render(host)
+}
+
 function zoom(host: GameCanvas, delta: number) {
 	host.cellSize = clamp(host.cellSize - delta, 7, 50)
 	render(host)
@@ -286,6 +297,12 @@ const style = css`
 	}
 	canvas {
 		border: 1px solid black;
+	}
+	#end-buttons {
+		padding: 1rem;
+		display: flex;
+		gap: 1rem;
+		justify-content: space-evenly;
 	}
 
 	@media screen and (min-width: 768px) {
@@ -307,6 +324,7 @@ type GameCanvas = {
 	ctx: CanvasRenderingContext2D
 	grid: Grid
 	state: "initial" | "playing" | "won" | "lost"
+	isEndState: boolean
 	timeoutId: number
 	duration: number
 	tool: Tool
@@ -347,6 +365,7 @@ const GameCanvas: Hybrids<GameCanvas> = {
 			host.state = "initial"
 		},
 	},
+	isEndState: ({ state }) => ["won", "lost"].includes(state),
 	timeoutId: -1,
 	duration: 0,
 	tool: "pointer",
@@ -355,7 +374,7 @@ const GameCanvas: Hybrids<GameCanvas> = {
 		host.flagImg = new Image()
 		host.flagImg.src = "img/flag.png"
 	}),
-	render: ({ width, height, cellSize, duration, state, tool }) =>
+	render: ({ width, height, cellSize, duration, state, isEndState, tool }) =>
 		html`<ds-timer duration=${duration}></ds-timer>
 			<div id="container">
 				<canvas
@@ -368,13 +387,18 @@ const GameCanvas: Hybrids<GameCanvas> = {
 					ontouchend=${handleTouchEnd}
 				></canvas>
 			</div>
-			${["won", "lost"].includes(state) && html`<ds-banner state=${state}></ds-banner>`}
+			${isEndState && html`<ds-banner state=${state}></ds-banner>`}
+			${isEndState &&
+			html`<div id="end-buttons">
+				<button onclick=${reset} class="btn">Retry</button>
+				<button onclick=${goBack} class="btn">Back</button>
+			</div>`}
 			<ds-responsive-controls
 				tool=${tool}
 				onzoom=${handleZoom}
 				ontoolchange=${handleToolChange}
 			></ds-responsive-controls>`
-			.style(resetCSS, style)
+			.style(resetCSS, buttons, style)
 			.define({ dsTimer: Timer, dsBanner: Banner, dsResponsiveControls: ResponsiveControls }),
 }
 
