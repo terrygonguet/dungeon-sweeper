@@ -374,7 +374,7 @@ const GameCanvas: Hybrids<GameCanvas> = {
 		host.flagImg = new Image()
 		host.flagImg.src = "img/flag.png"
 	}),
-	render: ({ width, height, cellSize, duration, state, isEndState, tool }) =>
+	render: ({ width, height, cellSize, duration, state, isEndState, tool, colors }) =>
 		html`<ds-timer duration=${duration}></ds-timer>
 			<div id="container">
 				<canvas
@@ -394,6 +394,7 @@ const GameCanvas: Hybrids<GameCanvas> = {
 				<button onclick=${goBack} class="btn">Back</button>
 			</div>`}
 			<ds-responsive-controls
+				colors=${colors}
 				tool=${tool}
 				onzoom=${handleZoom}
 				ontoolchange=${handleToolChange}
