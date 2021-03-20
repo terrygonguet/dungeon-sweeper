@@ -1,7 +1,19 @@
 import { html, Hybrids, property } from "hybrids"
 import { reset as resetCSS } from "~styles"
 import { clamp, querySelectorProp } from "~utils"
-import { discoverCell, flagCell, get, Grid, isGameWon, makeGrid, uncoverAllMines, Visibility } from "~logic/Minesweeper"
+import {
+	Cell,
+	countTraps,
+	discoverCell,
+	flagCell,
+	get,
+	Grid,
+	isGameWon,
+	makeGrid,
+	TrapColor,
+	uncoverAllMines,
+	Visibility,
+} from "~logic/Minesweeper"
 import Banner from "~comp/Banner"
 import Timer from "~comp/Timer"
 
@@ -21,7 +33,8 @@ function drawGrid({ width, height, cellSize, ctx }: GameCanvas) {
 	ctx.restore()
 }
 
-function drawCells({ width, height, cellSize, ctx, grid, state }: GameCanvas) {
+function drawCells(host: GameCanvas) {
+	const { width, height, cellSize, ctx, grid, state } = host
 	switch (state) {
 		case "initial":
 			ctx.save()
@@ -38,8 +51,13 @@ function drawCells({ width, height, cellSize, ctx, grid, state }: GameCanvas) {
 				for (let y = 0; y < height; y++) {
 					const cell = get(grid, x, y)
 					switch (cell?.visibility) {
-						case Visibility.Flagged:
-							ctx.fillStyle = "#ccc"
+						case Visibility.YellowFlag:
+							ctx.fillStyle = "khaki"
+							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+							ctx.fillText("🚩", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
+							break
+						case Visibility.RedFlag:
+							ctx.fillStyle = "lightpink"
 							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
 							ctx.fillText("🚩", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
 							break
@@ -48,24 +66,42 @@ function drawCells({ width, height, cellSize, ctx, grid, state }: GameCanvas) {
 							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
 							break
 						case Visibility.Visible:
-							switch (cell?.mine) {
-								case 0: // nothing
-									break
-								case 9:
-									ctx.fillStyle = state == "won" ? "lightgreen" : "red"
-									ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
-									ctx.fillText("💣", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
-									break
-								default:
-									ctx.fillStyle = colors[cell?.mine ?? 9]
-									ctx.fillText(cell?.mine + "", (x + 0.5) * cellSize, (y + 0.5) * cellSize)
-									break
-							}
+							drawCell(host, cell)
 							break
 					}
 				}
 			}
 			ctx.restore()
+			break
+	}
+}
+
+function drawCell({ ctx, state, cellSize }: GameCanvas, cell: Cell) {
+	const { x, y } = cell
+	switch (cell.type) {
+		case "mine":
+			ctx.fillStyle = state == "won" ? "lightgreen" : cell.color
+			ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+			ctx.fillText("💣", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
+			break
+		case "empty":
+			let i = 0
+			const positions = setups[countTraps(cell.proximity)]
+			for (const [color, n] of cell.proximity) {
+				ctx.fillStyle = color
+				for (let j = 0; j < n; j++) {
+					ctx.beginPath()
+					ctx.arc(
+						(x + positions[i]) * cellSize,
+						(y + positions[i + 1]) * cellSize,
+						0.13 * cellSize,
+						0,
+						2 * Math.PI,
+					)
+					i += 2
+					ctx.fill()
+				}
+			}
 			break
 	}
 }
@@ -76,7 +112,17 @@ function render(host: GameCanvas) {
 	drawGrid(host)
 }
 
-const colors = ["white", "#0eff1e", "#12d2ff", "#1489ff", "#1641ff", "#3618ff", "#7f1bff", "#c71dff", "#ff1ff1", "red"]
+const setups = [
+	[],
+	[0.5, 0.5],
+	[0.8, 0.2, 0.2, 0.8],
+	[0.8, 0.2, 0.2, 0.8, 0.5, 0.5],
+	[0.2, 0.2, 0.8, 0.2, 0.2, 0.8, 0.8, 0.8],
+	[0.2, 0.2, 0.8, 0.2, 0.2, 0.8, 0.8, 0.8, 0.5, 0.5],
+	[0.2, 0.2, 0.8, 0.2, 0.2, 0.8, 0.8, 0.8, 0.2, 0.5, 0.8, 0.5],
+	[0.2, 0.33, 0.2, 0.66, 0.5, 0.2, 0.5, 0.5, 0.5, 0.8, 0.8, 0.33, 0.8, 0.66],
+	[0.2, 0.2, 0.8, 0.2, 0.2, 0.8, 0.8, 0.8, 0.2, 0.5, 0.8, 0.5, 0.5, 0.33, 0.5, 0.66],
+]
 
 function handleLeftClick(host: GameCanvas, e: MouseEvent) {
 	const { offsetX, offsetY } = e,
@@ -117,7 +163,12 @@ function handleRightClick(host: GameCanvas, e: MouseEvent) {
 			host.grid = makeGrid(host, x, y)
 		case "playing":
 			flagCell(host.grid, x, y)
+			if (isGameWon(host.grid)) host.state = "won"
 			break
+	}
+
+	if (host.state == "won" || host.state == "lost") {
+		uncoverAllMines(host.grid)
 	}
 
 	render(host)
