@@ -36,7 +36,7 @@ function drawGrid({ width, height, cellSize, ctx }: GameCanvas) {
 }
 
 function drawCells(host: GameCanvas) {
-	const { width, height, cellSize, ctx, grid, state } = host
+	const { width, height, cellSize, ctx, grid, state, flagImg } = host
 	switch (state) {
 		case "initial":
 			ctx.save()
@@ -63,7 +63,13 @@ function drawCells(host: GameCanvas) {
 						default:
 							ctx.fillStyle = cell?.visibility ?? "#ccc"
 							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
-							ctx.fillText("🚩", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
+							ctx.drawImage(
+								flagImg,
+								(x + 0.1) * cellSize,
+								(y + 0.1) * cellSize,
+								cellSize * 0.8,
+								cellSize * 0.8,
+							)
 							break
 					}
 				}
@@ -244,7 +250,10 @@ function handleTouchEnd(host: GameCanvas, e: TouchEvent) {
 					host.state = "playing"
 					host.grid = makeGrid(host, x, y)
 				case "playing":
-					flagOrToggleCell(host.grid, x, y, tool as Visibility)
+					const cell = get(host.grid, x, y)
+					if (cell?.visibility == Visibility.Visible && discoverCell(host, x, y, () => render(host)))
+						host.state = "lost"
+					else flagOrToggleCell(host.grid, x, y, tool as Visibility)
 					if (isGameWon(host.grid)) host.state = "won"
 					break
 			}
@@ -302,6 +311,7 @@ type GameCanvas = {
 	duration: number
 	tool: Tool
 	touchState: "initial" | "down" | "moving"
+	flagImg: HTMLImageElement
 }
 
 const GameCanvas: Hybrids<GameCanvas> = {
@@ -341,6 +351,10 @@ const GameCanvas: Hybrids<GameCanvas> = {
 	duration: 0,
 	tool: "pointer",
 	touchState: "initial",
+	flagImg: property(undefined, host => {
+		host.flagImg = new Image()
+		host.flagImg.src = "img/flag.png"
+	}),
 	render: ({ width, height, cellSize, duration, state, tool }) =>
 		html`<ds-timer duration=${duration}></ds-timer>
 			<div id="container">

@@ -94,7 +94,8 @@ const ResponsiveControls: Hybrids<ResponsiveControls> = {
 						checked=${tool == vis}
 						name="tool"
 						onchange=${handleToolChange(vis ?? "pointer")}
-					/>🚩
+					/>
+					<img src="img/flag.png" class="icon" alt="flag icon" />
 				</label>`
 			})}
 		`.style(reset, style),
