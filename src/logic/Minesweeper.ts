@@ -1,15 +1,19 @@
-import { randInt } from "~utils"
+import { modWrap, pickRandom, randInt } from "~utils"
 
 export enum Visibility {
 	Hidden,
 	Visible,
-	RedFlag,
-	YellowFlag,
+	RedFlag = "lightpink",
+	YellowFlag = "khaki",
+	BlueFlag = "cornflowerblue",
+	GreenFlag = "darkseagreen",
 }
 
 export enum TrapColor {
 	Red = "red",
 	Yellow = "goldenrod",
+	Blue = "royalblue",
+	Green = "limegreen",
 }
 
 type EmptyCell = {
@@ -38,8 +42,9 @@ export type Grid = {
 	}
 }
 
+const flagVisibilities = new Set([Visibility.RedFlag, Visibility.YellowFlag, Visibility.BlueFlag, Visibility.GreenFlag])
 export function isFlag(visibility: Visibility) {
-	return visibility == Visibility.RedFlag || visibility == Visibility.YellowFlag
+	return flagVisibilities.has(visibility)
 }
 
 export function set(grid: Grid, x: number, y: number, cell: Cell) {
@@ -56,7 +61,19 @@ export function countTraps(proximity: Map<TrapColor, number>) {
 	return Array.from(proximity.values()).reduce((acc, cur) => acc + cur, 0)
 }
 
-function _makeGrid({ width = 30, height = 20, difficulty = 0.1 } = {}) {
+type MakeGridOptions = {
+	width?: number | undefined
+	height?: number | undefined
+	difficulty?: number | undefined
+	colors?: TrapColor[] | undefined
+}
+
+function _makeGrid({
+	width = 30,
+	height = 20,
+	difficulty = 0.1,
+	colors = [TrapColor.Red, TrapColor.Yellow, TrapColor.Blue, TrapColor.Green],
+} = {}) {
 	const grid: Grid = { width, height }
 	let nbMines = Math.ceil(width * height * difficulty)
 
@@ -68,7 +85,7 @@ function _makeGrid({ width = 30, height = 20, difficulty = 0.1 } = {}) {
 			type: "mine",
 			x,
 			y,
-			color: Math.random() < 0.5 ? TrapColor.Red : TrapColor.Yellow,
+			color: pickRandom(colors),
 			visibility: Visibility.Hidden,
 		})
 		nbMines--
@@ -92,17 +109,17 @@ function _makeGrid({ width = 30, height = 20, difficulty = 0.1 } = {}) {
 			neighbours.forEach(
 				cell => cell.type == "mine" && proximity.set(cell.color, (proximity.get(cell.color) ?? 0) + 1),
 			)
-			grid[x][y] = { type: "empty", x, y, proximity, visibility: Visibility.Visible }
+			grid[x][y] = { type: "empty", x, y, proximity, visibility: Visibility.Hidden }
 		}
 	}
 
 	return grid
 }
 
-export function makeGrid(params: { width: number; height: number; difficulty: number }, x: number, y: number) {
+export function makeGrid(options: MakeGridOptions, x: number, y: number) {
 	let grid
 	do {
-		grid = _makeGrid(params)
+		grid = _makeGrid(options)
 	} while (get(grid, x, y)?.type == "mine")
 	return grid
 }
@@ -207,6 +224,12 @@ function uncoverNextTo(
 	return results.some(Boolean)
 }
 
+const trapFlagMap = new Map([
+	[TrapColor.Red, Visibility.RedFlag],
+	[TrapColor.Yellow, Visibility.YellowFlag],
+	[TrapColor.Blue, Visibility.BlueFlag],
+	[TrapColor.Green, Visibility.GreenFlag],
+])
 export function isGameWon(grid: Grid) {
 	for (let x = 0; x < grid.width; x++) {
 		for (let y = 0; y < grid.height; y++) {
@@ -216,12 +239,7 @@ export function isGameWon(grid: Grid) {
 					if (cell.visibility != Visibility.Visible) return false
 					continue
 				case "mine":
-					if (
-						cell.visibility == Visibility.Hidden ||
-						(cell.color == TrapColor.Red && cell.visibility == Visibility.YellowFlag) ||
-						(cell.color == TrapColor.Yellow && cell.visibility == Visibility.RedFlag)
-					)
-						return false
+					if (trapFlagMap.get(cell.color) != cell.visibility) return false
 					continue
 			}
 		}
@@ -238,17 +256,16 @@ export function uncoverAllMines(grid: Grid) {
 	}
 }
 
-export function flagCell(grid: Grid, x: number, y: number) {
+const nextFlagMap = [
+	Visibility.Hidden,
+	Visibility.RedFlag,
+	Visibility.YellowFlag,
+	Visibility.BlueFlag,
+	Visibility.GreenFlag,
+]
+export function flagCell(grid: Grid, x: number, y: number, reverse = false) {
 	const cell = get(grid, x, y)
-	switch (cell?.visibility) {
-		case Visibility.RedFlag:
-			cell.visibility = Visibility.YellowFlag
-			break
-		case Visibility.YellowFlag:
-			cell.visibility = Visibility.Hidden
-			break
-		case Visibility.Hidden:
-			cell.visibility = Visibility.RedFlag
-			break
-	}
+	if (!cell) return
+	const i = nextFlagMap.indexOf(cell?.visibility)
+	cell.visibility = nextFlagMap[modWrap(i + (reverse ? -1 : 1), nextFlagMap.length)]
 }

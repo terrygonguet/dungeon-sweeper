@@ -16,6 +16,14 @@ export function randInt(min: number, max: number) {
 	return Math.floor(Math.random() * (max - min)) + min
 }
 
+export function pickRandom<T>(arr: T[]) {
+	return arr[randInt(0, arr.length)]
+}
+
+export function modWrap(a: number, b: number) {
+	return (a + Math.ceil(-a / b) * b) % b
+}
+
 export function querySelectorProp<E, V>(query: string): Descriptor<E, V> {
 	return {
 		get(host: any) {

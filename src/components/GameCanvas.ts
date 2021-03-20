@@ -1,6 +1,6 @@
 import { html, Hybrids, property } from "hybrids"
 import { reset as resetCSS } from "~styles"
-import { clamp, querySelectorProp } from "~utils"
+import { clamp, preventDefault, querySelectorProp } from "~utils"
 import {
 	Cell,
 	countTraps,
@@ -10,7 +10,6 @@ import {
 	Grid,
 	isGameWon,
 	makeGrid,
-	TrapColor,
 	uncoverAllMines,
 	Visibility,
 } from "~logic/Minesweeper"
@@ -51,22 +50,17 @@ function drawCells(host: GameCanvas) {
 				for (let y = 0; y < height; y++) {
 					const cell = get(grid, x, y)
 					switch (cell?.visibility) {
-						case Visibility.YellowFlag:
-							ctx.fillStyle = "khaki"
-							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
-							ctx.fillText("🚩", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
-							break
-						case Visibility.RedFlag:
-							ctx.fillStyle = "lightpink"
-							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
-							ctx.fillText("🚩", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
-							break
 						case Visibility.Hidden:
 							ctx.fillStyle = "#ccc"
 							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
 							break
 						case Visibility.Visible:
 							drawCell(host, cell)
+							break
+						default:
+							ctx.fillStyle = cell?.visibility ?? "#ccc"
+							ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+							ctx.fillText("🚩", (x + 0.5) * cellSize, (y + 0.6) * cellSize)
 							break
 					}
 				}
@@ -124,6 +118,20 @@ const setups = [
 	[0.2, 0.2, 0.8, 0.2, 0.2, 0.8, 0.8, 0.8, 0.2, 0.5, 0.8, 0.5, 0.5, 0.33, 0.5, 0.66],
 ]
 
+function handleMouseUp(host: GameCanvas, e: MouseEvent) {
+	switch (e.button) {
+		case 0: // Left mouse
+			handleLeftClick(host, e)
+			break
+		case 1: // Middle mouse
+			handleRightClick(host, e, true)
+			break
+		case 2: // Right mouse
+			handleRightClick(host, e)
+			break
+	}
+}
+
 function handleLeftClick(host: GameCanvas, e: MouseEvent) {
 	const { offsetX, offsetY } = e,
 		{ cellSize, state } = host,
@@ -149,7 +157,7 @@ function handleLeftClick(host: GameCanvas, e: MouseEvent) {
 	render(host)
 }
 
-function handleRightClick(host: GameCanvas, e: MouseEvent) {
+function handleRightClick(host: GameCanvas, e: MouseEvent, reverse = false) {
 	e.preventDefault()
 
 	const { offsetX, offsetY } = e,
@@ -162,7 +170,7 @@ function handleRightClick(host: GameCanvas, e: MouseEvent) {
 			host.state = "playing"
 			host.grid = makeGrid(host, x, y)
 		case "playing":
-			flagCell(host.grid, x, y)
+			flagCell(host.grid, x, y, reverse)
 			if (isGameWon(host.grid)) host.state = "won"
 			break
 	}
@@ -232,8 +240,8 @@ const GameCanvas: Hybrids<GameCanvas> = {
 			<canvas
 				width=${width * cellSize}
 				height=${height * cellSize}
-				onclick=${handleLeftClick}
-				oncontextmenu=${handleRightClick}
+				onmouseup=${handleMouseUp}
+				oncontextmenu=${preventDefault}
 			></canvas>
 			${["won", "lost"].includes(state) && html`<ds-banner state=${state}></ds-banner>`}
 			<style>
