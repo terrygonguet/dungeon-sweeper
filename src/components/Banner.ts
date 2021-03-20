@@ -15,7 +15,7 @@ const Banner: Hybrids<Banner> = {
 					font-weight: bold;
 					text-align: center;
 					padding: 1rem;
-					position: absolute;
+					position: fixed;
 					top: 50%;
 					transform: translateY(-50%);
 					width: 100%;
@@ -25,6 +25,12 @@ const Banner: Hybrids<Banner> = {
 				}
 				.won.banner {
 					background: rgba(14, 255, 30, 0.7);
+				}
+
+				@media screen and (min-width: 768px) {
+					.banner {
+						position: absolute;
+					}
 				}
 			</style>`.style(reset),
 }

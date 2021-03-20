@@ -24,6 +24,10 @@ export function modWrap(a: number, b: number) {
 	return (a + Math.ceil(-a / b) * b) % b
 }
 
+export function noopTag(strings: TemplateStringsArray, ...args: any[]) {
+	return strings.reduce((acc, cur, i) => acc + cur + (args[i] ?? ""), "")
+}
+
 export function querySelectorProp<E, V>(query: string): Descriptor<E, V> {
 	return {
 		get(host: any) {

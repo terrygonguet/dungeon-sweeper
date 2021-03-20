@@ -2,8 +2,17 @@ import { define, html, Hybrids, UpdateFunctionWithMethods } from "hybrids"
 import { reset } from "~styles"
 import Menu, { StartEvent } from "~comp/Menu"
 import Game from "~comp/GameCanvas"
+import { TrapColor } from "~logic/Minesweeper"
 
 const dev = import.meta.env.MODE == "development"
+
+function start(host: App & HTMLElement, e: StartEvent) {
+	host.state = "playing"
+	host.width = e.detail.width
+	host.height = e.detail.height
+	host.difficulty = e.detail.difficulty
+	host.colors = e.detail.colors
+}
 
 type App = {
 	state: "menu" | "playing" | "won" | "lost"
@@ -11,13 +20,7 @@ type App = {
 	width: number
 	height: number
 	difficulty: number
-}
-
-function start(host: App & HTMLElement, e: StartEvent) {
-	host.state = "playing"
-	host.width = e.detail.width
-	host.height = e.detail.height
-	host.difficulty = e.detail.difficulty
+	colors: TrapColor[]
 }
 
 const App: Hybrids<App> = {
@@ -25,12 +28,18 @@ const App: Hybrids<App> = {
 	width: 30,
 	height: 20,
 	difficulty: 0.1,
-	curEl({ state, width, height, difficulty }) {
+	colors: [TrapColor.Red, TrapColor.Yellow, TrapColor.Green],
+	curEl({ state, width, height, difficulty, colors }) {
 		switch (state) {
 			case "menu":
 				return html`<ds-menu onstart=${start}></ds-menu>`.define({ dsMenu: Menu })
 			case "playing":
-				return html`<ds-game width=${width} height=${height} difficulty=${difficulty}></ds-game>`.define({
+				return html`<ds-game
+					width=${width}
+					height=${height}
+					difficulty=${difficulty}
+					colors=${colors}
+				></ds-game>`.define({
 					dsGame: Game,
 				})
 			default:

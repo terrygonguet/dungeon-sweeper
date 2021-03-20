@@ -1,15 +1,10 @@
 import { html, Hybrids } from "hybrids"
+import { TrapColor } from "~logic/Minesweeper"
 import { setLevelDimensions } from "~stores/Level"
-import { buttons, reset } from "~styles"
+import { buttons, reset, selects } from "~styles"
+import { observedProp, querySelectorProp, noopTag as css } from "~utils"
 
-type Menu = {
-	width: number
-	height: number
-	difficulty: number
-	gridStyle: Object
-}
-
-export type StartEvent = CustomEvent<{ width: number; height: number; difficulty: number }>
+export type StartEvent = CustomEvent<{ width: number; height: number; difficulty: number; colors: TrapColor[] }>
 
 async function start(host: Menu & HTMLElement, e: Event) {
 	e.preventDefault()
@@ -20,24 +15,138 @@ async function start(host: Menu & HTMLElement, e: Event) {
 				width: host.width,
 				height: host.height,
 				difficulty: host.difficulty,
+				colors: host.colors,
 			},
-		}),
+		}) as StartEvent,
 	)
 }
 
-const Menu: Hybrids<Menu> = {
-	width: 30,
-	height: 15,
-	difficulty: 0.1,
-	gridStyle({ width, height }) {
-		return {
-			gridTemplateColumns: `repeat(${width}, auto)`,
-			gridTemplateRows: `repeat(${height}, auto)`,
+function render(host: Menu) {
+	const { width, height, ctx } = host,
+		cellSize = 15
+	ctx.save()
+	ctx.beginPath()
+	ctx.strokeStyle = "#999"
+	for (let x = 1; x < width; x++) {
+		ctx.moveTo(x * cellSize + 0.5, 0)
+		ctx.lineTo(x * cellSize + 0.5, height * cellSize)
+	}
+	for (let y = 1; y < height; y++) {
+		ctx.moveTo(0, y * cellSize + 0.5)
+		ctx.lineTo(width * cellSize, y * cellSize + 0.5)
+	}
+	ctx.stroke()
+	ctx.restore()
+}
+
+type Menu = {
+	width: number
+	height: number
+	difficulty: number
+	colors: TrapColor[]
+	redTrap: boolean
+	yellowTrap: boolean
+	greenTrap: boolean
+	blueTrap: boolean
+	canvas: HTMLCanvasElement
+	ctx: CanvasRenderingContext2D
+}
+
+const style = css`
+	:host {
+		height: 100%;
+		width: 100%;
+		display: grid;
+		justify-items: center;
+		align-items: center;
+		grid-template-rows: 1fr;
+	}
+	form {
+		display: flex;
+		flex-direction: column;
+		max-width: 25rem;
+		width: 100%;
+		height: 100%;
+		padding: 1rem;
+	}
+	.label {
+		font-weight: 300;
+		font-size: 1.125rem;
+		margin-top: 1rem;
+		margin-bottom: 0;
+	}
+	ol {
+		margin: 1rem 0 0 0;
+		padding: 0;
+		list-style-type: none;
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0.5rem;
+	}
+	li > label {
+		display: flex;
+		width: 100%;
+		align-items: center;
+		justify-content: center;
+	}
+	input[type="checkbox"] {
+		display: none;
+	}
+	.mine {
+		background-color: #ccc;
+		border: 1px solid black;
+		width: 30px;
+		height: 30px;
+		text-align: center;
+	}
+	input[type="checkbox"]:checked + .mine {
+		background-color: var(--color);
+	}
+	canvas {
+		display: none;
+		border: 1px solid black;
+	}
+	.btn {
+		margin-top: auto;
+		align-self: center;
+	}
+
+	@media screen and (min-width: 768px) {
+		:host {
+			grid-template-rows: 1fr 1fr;
 		}
+		canvas {
+			display: block;
+		}
+		.btn {
+			margin-top: 1rem;
+		}
+	}
+`
+
+const Menu: Hybrids<Menu> = {
+	width: observedProp(30, render),
+	height: observedProp(15, render),
+	difficulty: 0.1,
+	redTrap: true,
+	yellowTrap: true,
+	greenTrap: true,
+	blueTrap: false,
+	colors: ({ redTrap, yellowTrap, greenTrap, blueTrap }) =>
+		[
+			redTrap && TrapColor.Red,
+			yellowTrap && TrapColor.Yellow,
+			greenTrap && TrapColor.Green,
+			blueTrap && TrapColor.Blue,
+		].filter(Boolean) as TrapColor[],
+	canvas: querySelectorProp("canvas"),
+	ctx: {
+		get: ({ canvas }) => canvas.getContext("2d") as CanvasRenderingContext2D,
+		connect: render,
 	},
-	render: ({ width, height, gridStyle, difficulty }) =>
+	render: ({ width, height, difficulty, redTrap, yellowTrap, greenTrap, blueTrap }) =>
 		html`<form onsubmit=${start}>
-				<label for="txb-width">Width - ${width}</label>
+				<label class="label" for="txb-width">Width - ${width}</label>
 				<input
 					id="txb-width"
 					type="range"
@@ -47,7 +156,7 @@ const Menu: Hybrids<Menu> = {
 					onchange=${html.set("width")}
 					oninput=${html.set("width")}
 				/>
-				<label for="txb-height">Height - ${height}</label>
+				<label class="label" for="txb-height">Height - ${height}</label>
 				<input
 					id="txb-height"
 					type="range"
@@ -57,58 +166,47 @@ const Menu: Hybrids<Menu> = {
 					onchange=${html.set("height")}
 					oninput=${html.set("height")}
 				/>
-				<label for="ddl-difficulty">Difficulty</label>
-				<select id="txb-difficulty" value=${difficulty} onchange=${html.set("difficulty")}>
+				<label class="label" for="ddl-difficulty">Difficulty</label>
+				<select class="select" id="txb-difficulty" value=${difficulty} onchange=${html.set("difficulty")}>
 					<option value="0.1">Easy</option>
 					<option value="0.2">Medium</option>
 					<option value="0.3">Hard</option>
 				</select>
+				<p class="label">Mine colors</p>
+				<ol>
+					<li>
+						<label>
+							<input type="checkbox" checked=${redTrap} onchange=${html.set("redTrap")} />
+							<span class="mine" style="--color: ${TrapColor.Red}">💣</span>
+						</label>
+					</li>
+					<li>
+						<label>
+							<input type="checkbox" checked=${yellowTrap} onchange=${html.set("yellowTrap")} />
+							<span class="mine" style="--color: ${TrapColor.Yellow}">💣</span>
+						</label>
+					</li>
+					<li>
+						<label>
+							<input type="checkbox" checked=${greenTrap} onchange=${html.set("greenTrap")} />
+							<span class="mine" style="--color: ${TrapColor.Green}">💣</span>
+						</label>
+					</li>
+					<li>
+						<label>
+							<input type="checkbox" checked=${blueTrap} onchange=${html.set("blueTrap")} />
+							<span class="mine" style="--color: ${TrapColor.Blue}">💣</span>
+						</label>
+					</li>
+				</ol>
 				<button class="btn">Start!</button>
 			</form>
-			<div id="grid" style="${gridStyle}">
-				${Array(width * height)
-					.fill(0)
-					.map(() => html`<div class="cell"></div>`)}
-			</div>
-			<style>
-				:host {
-					height: 100%;
-					width: 100%;
-					display: grid;
-					justify-items: center;
-					align-items: center;
-					grid-template-rows: 1fr 1fr;
-				}
-				form {
-					display: flex;
-					flex-direction: column;
-				}
-				label {
-					font-weight: 300;
-					font-size: 1.125rem;
-					margin-top: 1rem;
-				}
-				input {
-					width: 25rem;
-				}
-				#grid {
-					display: grid;
-					border-top: 1px solid black;
-					border-left: 1px solid black;
-				}
-				.cell {
-					border-right: 1px solid black;
-					border-bottom: 1px solid black;
-					height: 1.1rem;
-					width: 1.1rem;
-				}
-				.btn {
-					margin-top: 1rem;
-					align-self: center;
-				}
-			</style>`
-			.style(reset)
-			.style(buttons),
+			<canvas class="canvas" width=${width * 15} height=${height * 15}></canvas>`.style(
+			reset,
+			buttons,
+			selects,
+			style,
+		),
 }
 
 export default Menu

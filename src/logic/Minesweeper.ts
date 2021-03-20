@@ -224,7 +224,7 @@ function uncoverNextTo(
 	return results.some(Boolean)
 }
 
-const trapFlagMap = new Map([
+export const trapFlagMap = new Map([
 	[TrapColor.Red, Visibility.RedFlag],
 	[TrapColor.Yellow, Visibility.YellowFlag],
 	[TrapColor.Blue, Visibility.BlueFlag],
@@ -265,7 +265,14 @@ const nextFlagMap = [
 ]
 export function flagCell(grid: Grid, x: number, y: number, reverse = false) {
 	const cell = get(grid, x, y)
-	if (!cell) return
+	if (!cell || cell.visibility == Visibility.Visible) return
 	const i = nextFlagMap.indexOf(cell?.visibility)
 	cell.visibility = nextFlagMap[modWrap(i + (reverse ? -1 : 1), nextFlagMap.length)]
+}
+
+export function flagOrToggleCell(grid: Grid, x: number, y: number, visibility: Visibility) {
+	const cell = get(grid, x, y)
+	if (!cell || cell.visibility == Visibility.Visible) return
+	if (cell.visibility == visibility) cell.visibility = Visibility.Hidden
+	else cell.visibility = visibility
 }

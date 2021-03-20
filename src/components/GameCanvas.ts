@@ -1,20 +1,23 @@
 import { html, Hybrids, property } from "hybrids"
 import { reset as resetCSS } from "~styles"
-import { clamp, preventDefault, querySelectorProp } from "~utils"
+import { clamp, preventDefault, querySelectorProp, noopTag as css } from "~utils"
 import {
 	Cell,
 	countTraps,
 	discoverCell,
 	flagCell,
+	flagOrToggleCell,
 	get,
 	Grid,
 	isGameWon,
 	makeGrid,
+	TrapColor,
 	uncoverAllMines,
 	Visibility,
 } from "~logic/Minesweeper"
 import Banner from "~comp/Banner"
 import Timer from "~comp/Timer"
+import ResponsiveControls, { Tool, ToolChangeEvent, ZoomEvent } from "~comp/ResponsiveControls"
 
 function drawGrid({ width, height, cellSize, ctx }: GameCanvas) {
 	ctx.save()
@@ -184,32 +187,133 @@ function handleRightClick(host: GameCanvas, e: MouseEvent, reverse = false) {
 
 function handleWheel(host: GameCanvas, e: WheelEvent) {
 	e.preventDefault()
-	host.cellSize = clamp(host.cellSize - Math.sign(e.deltaY) * 2, 7, 50)
+	zoom(host, Math.sign(e.deltaY) * 2)
+}
+
+function handleZoom(host: GameCanvas, e: ZoomEvent) {
+	zoom(host, e.detail.delta)
+}
+
+function handleToolChange(host: GameCanvas, e: ToolChangeEvent) {
+	host.tool = e.detail.tool
+}
+
+function handleTouchStart(host: GameCanvas, e: TouchEvent) {
+	host.touchState = "down"
+}
+
+function handleTouchMove(host: GameCanvas, e: TouchEvent) {
+	host.touchState = "moving"
+}
+
+function handleTouchEnd(host: GameCanvas, e: TouchEvent) {
+	const touch = e.changedTouches.item(0)
+	if (!touch) return
+	const { cellSize, state, touchState, tool } = host,
+		{ target, clientX, clientY } = touch,
+		{ top, left } = (target as HTMLElement).getBoundingClientRect(),
+		x = Math.floor((clientX - left) / cellSize),
+		y = Math.floor((clientY - top) / cellSize)
+
+	switch (touchState) {
+		case "down":
+			host.touchState = "initial"
+			e.preventDefault()
+			break
+		case "moving":
+			return (host.touchState = "initial")
+	}
+
+	switch (tool) {
+		case "pointer":
+			switch (state) {
+				case "initial":
+					host.grid = makeGrid(host, x, y)
+					if (discoverCell(host, x, y, () => render(host))) host.state = "lost"
+					else host.state = "playing"
+					break
+				case "playing":
+					if (discoverCell(host, x, y, () => render(host))) host.state = "lost"
+					if (isGameWon(host.grid)) host.state = "won"
+					break
+			}
+			break
+		default:
+			switch (state) {
+				case "initial":
+					host.state = "playing"
+					host.grid = makeGrid(host, x, y)
+				case "playing":
+					flagOrToggleCell(host.grid, x, y, tool as Visibility)
+					if (isGameWon(host.grid)) host.state = "won"
+					break
+			}
+			break
+	}
+
+	if (host.state == "won" || host.state == "lost") {
+		uncoverAllMines(host.grid)
+	}
+
 	render(host)
 }
+
+function zoom(host: GameCanvas, delta: number) {
+	host.cellSize = clamp(host.cellSize - delta, 7, 50)
+	render(host)
+}
+
+const style = css`
+	:host {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+	#container {
+		overflow: auto;
+		margin: auto;
+		max-width: 100%;
+	}
+	canvas {
+		border: 1px solid black;
+	}
+
+	@media screen and (min-width: 768px) {
+		:host {
+			display: block;
+			margin: auto;
+			height: auto;
+		}
+	}
+`
 
 type GameCanvas = {
 	width: number
 	height: number
-	cellSize: number
 	difficulty: number
+	colors: TrapColor[]
+	cellSize: number
 	canvas: HTMLCanvasElement
 	ctx: CanvasRenderingContext2D
 	grid: Grid
 	state: "initial" | "playing" | "won" | "lost"
 	timeoutId: number
 	duration: number
+	tool: Tool
+	touchState: "initial" | "down" | "moving"
 }
 
 const GameCanvas: Hybrids<GameCanvas> = {
 	width: 30,
 	height: 20,
-	cellSize: property(30, host => {
+	difficulty: 0.1,
+	colors: [TrapColor.Red, TrapColor.Yellow, TrapColor.Green],
+	cellSize: property(innerWidth >= 768 ? 30 : 20, host => {
 		const cb = handleWheel.bind(undefined, host)
 		window.addEventListener("wheel", cb, { passive: false })
 		return () => window.removeEventListener("wheel", cb)
 	}),
-	difficulty: 0.1,
 	canvas: querySelectorProp("canvas"),
 	ctx: {
 		get: ({ canvas }) => canvas.getContext("2d") as CanvasRenderingContext2D,
@@ -235,26 +339,29 @@ const GameCanvas: Hybrids<GameCanvas> = {
 	},
 	timeoutId: -1,
 	duration: 0,
-	render: ({ width, height, cellSize, duration, state }) =>
+	tool: "pointer",
+	touchState: "initial",
+	render: ({ width, height, cellSize, duration, state, tool }) =>
 		html`<ds-timer duration=${duration}></ds-timer>
-			<canvas
-				width=${width * cellSize}
-				height=${height * cellSize}
-				onmouseup=${handleMouseUp}
-				oncontextmenu=${preventDefault}
-			></canvas>
+			<div id="container">
+				<canvas
+					width=${width * cellSize}
+					height=${height * cellSize}
+					onmouseup=${handleMouseUp}
+					oncontextmenu=${preventDefault}
+					ontouchstart=${handleTouchStart}
+					ontouchmove=${handleTouchMove}
+					ontouchend=${handleTouchEnd}
+				></canvas>
+			</div>
 			${["won", "lost"].includes(state) && html`<ds-banner state=${state}></ds-banner>`}
-			<style>
-				:host {
-					margin: auto;
-					position: relative;
-				}
-				canvas {
-					border: 1px solid black;
-				}
-			</style>`
-			.style(resetCSS)
-			.define({ dsTimer: Timer, dsBanner: Banner }),
+			<ds-responsive-controls
+				tool=${tool}
+				onzoom=${handleZoom}
+				ontoolchange=${handleToolChange}
+			></ds-responsive-controls>`
+			.style(resetCSS, style)
+			.define({ dsTimer: Timer, dsBanner: Banner, dsResponsiveControls: ResponsiveControls }),
 }
 
 export default GameCanvas
