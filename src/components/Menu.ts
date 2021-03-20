@@ -110,6 +110,22 @@ const style = css`
 		margin-top: auto;
 		align-self: center;
 	}
+	#lower {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+	#lower p {
+		margin: 0.5rem 0;
+	}
+	#lower a {
+		color: #e6007e;
+		transition: all 0.3s ease-in-out;
+	}
+	#lower a:hover {
+		text-decoration: underline;
+		color: #ff4daf;
+	}
 
 	@media screen and (min-width: 768px) {
 		:host {
@@ -201,12 +217,12 @@ const Menu: Hybrids<Menu> = {
 				</ol>
 				<button class="btn">Start!</button>
 			</form>
-			<canvas class="canvas" width=${width * 15} height=${height * 15}></canvas>`.style(
-			reset,
-			buttons,
-			selects,
-			style,
-		),
+			<div id="lower">
+				<canvas class="canvas" width=${width * 15} height=${height * 15}></canvas>
+				<p>
+					Made by <a href="https://terry.gonguet.com/" target="_blank">Terry Gonguet</a> in a weekend in 2021.
+				</p>
+			</div>`.style(reset, buttons, selects, style),
 }
 
 export default Menu
