@@ -28,7 +28,7 @@ type App = {
 }
 
 const App: Hybrids<App> = {
-	state: !dev ? "playing" : "menu",
+	state: dev ? "playing" : "menu",
 	width: 30,
 	height: 20,
 	difficulty: 0.1,
